@@ -12,7 +12,37 @@
     Usage: loadstring(game:HttpGet("YOUR_GITHUB_RAW_URL/Loader.lua"))()
 --]]
 
-repeat task.wait(1) until game:IsLoaded()
+repeat task.wait() until game:IsLoaded()
+
+local Players = game:GetService("Players")
+local ReplicatedFirst = game:GetService("ReplicatedFirst")
+local Workspace = game:GetService("Workspace")
+
+repeat task.wait() until Players.LocalPlayer
+
+local player = Players.LocalPlayer
+
+-- Tunggu sampai pemain benar-benar sudah masuk ke dalam game (bukan di layar loading, loading data, dsb)
+local function isReallyInGame()
+    local success, result = pcall(function()
+        -- Cek tidak ada GUI/loading overlay umum di Roblox yang mengindikasikan belum masuk game
+        if player.PlayerGui:FindFirstChild("LOADING") then return false end
+        if ReplicatedFirst:FindFirstChild("LoadingGui") and ReplicatedFirst.LoadingGui.Parent ~= nil then return false end
+        if Workspace:FindFirstChild("Camera") and Workspace.CurrentCamera.CameraType == Enum.CameraType.Scriptable then return false end
+        
+        -- Pastikan PlayerGui sudah ready
+        if not player:FindFirstChild("PlayerGui") then return false end
+        
+        -- Bisa tambahkan pengecekan lain jika game butuh loading khusus
+        return true
+    end)
+    
+    return success and result == true
+end
+
+print("⏳ Waiting for game to fully load...")
+repeat task.wait() until isReallyInGame()
+print("✅ Game is ready!")
 
 ----------------------------------------------------------------
 -- ⚙️ CONFIGURATION
@@ -22,7 +52,6 @@ local CONFIG = {
     GITHUB_BASE_URL = "https://raw.githubusercontent.com/Kurniaharun/itun/refs/heads/main/",
     
     -- ⏱️ Timing
-    INITIAL_WAIT = 40,          -- รอเริ่มต้น (วินาที)
     QUEST_CHECK_INTERVAL = 2,    -- เช็ค Quest ใหม่ทุกกี่วินาที
     
     -- 🎮 Quest Range
@@ -42,16 +71,156 @@ local CONFIG = {
 }
 
 ----------------------------------------------------------------
+-- 🖥️ UI SYSTEM
+----------------------------------------------------------------
+local UI = {}
+local uiGui = nil
+local statusLabel = nil
+local questLabel = nil
+
+local function createUI()
+    -- Hapus UI lama jika ada
+    if playerGui:FindFirstChild("KaitunUI") then
+        playerGui.KaitunUI:Destroy()
+    end
+    
+    -- Buat ScreenGui
+    uiGui = Instance.new("ScreenGui")
+    uiGui.Name = "KaitunUI"
+    uiGui.ResetOnSpawn = false
+    uiGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    uiGui.Parent = playerGui
+    
+    -- Main Frame (Container)
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Name = "MainFrame"
+    mainFrame.Size = UDim2.new(0, 300, 0, 120)
+    mainFrame.Position = UDim2.new(0, 20, 0, 20)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    mainFrame.BackgroundTransparency = 0.5
+    mainFrame.BorderSizePixel = 0
+    mainFrame.Parent = uiGui
+    
+    -- Corner untuk rounded
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = mainFrame
+    
+    -- Nama Script (Title)
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Name = "Title"
+    titleLabel.Size = UDim2.new(1, 0, 0, 30)
+    titleLabel.Position = UDim2.new(0, 0, 0, 0)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Text = "KAITUN BY LAWW ( ONE CLICK )"
+    titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    titleLabel.TextSize = 16
+    titleLabel.Font = Enum.Font.GothamBold
+    titleLabel.TextStrokeTransparency = 0
+    titleLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    titleLabel.Parent = mainFrame
+    
+    -- Status Label
+    local statusFrame = Instance.new("Frame")
+    statusFrame.Name = "StatusFrame"
+    statusFrame.Size = UDim2.new(1, -20, 0, 25)
+    statusFrame.Position = UDim2.new(0, 10, 0, 35)
+    statusFrame.BackgroundTransparency = 1
+    statusFrame.Parent = mainFrame
+    
+    local statusTitle = Instance.new("TextLabel")
+    statusTitle.Name = "StatusTitle"
+    statusTitle.Size = UDim2.new(0, 80, 1, 0)
+    statusTitle.Position = UDim2.new(0, 0, 0, 0)
+    statusTitle.BackgroundTransparency = 1
+    statusTitle.Text = "STATUS :"
+    statusTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    statusTitle.TextSize = 14
+    statusTitle.Font = Enum.Font.GothamBold
+    statusTitle.TextXAlignment = Enum.TextXAlignment.Left
+    statusTitle.TextStrokeTransparency = 0
+    statusTitle.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    statusTitle.Parent = statusFrame
+    
+    statusLabel = Instance.new("TextLabel")
+    statusLabel.Name = "Status"
+    statusLabel.Size = UDim2.new(1, -85, 1, 0)
+    statusLabel.Position = UDim2.new(0, 85, 0, 0)
+    statusLabel.BackgroundTransparency = 1
+    statusLabel.Text = "LOADING..."
+    statusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    statusLabel.TextSize = 14
+    statusLabel.Font = Enum.Font.GothamBold
+    statusLabel.TextXAlignment = Enum.TextXAlignment.Left
+    statusLabel.TextStrokeTransparency = 0
+    statusLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    statusLabel.Parent = statusFrame
+    
+    -- Quest Active Label
+    local questFrame = Instance.new("Frame")
+    questFrame.Name = "QuestFrame"
+    questFrame.Size = UDim2.new(1, -20, 0, 25)
+    questFrame.Position = UDim2.new(0, 10, 0, 65)
+    questFrame.BackgroundTransparency = 1
+    questFrame.Parent = mainFrame
+    
+    local questTitle = Instance.new("TextLabel")
+    questTitle.Name = "QuestTitle"
+    questTitle.Size = UDim2.new(0, 100, 1, 0)
+    questTitle.Position = UDim2.new(0, 0, 0, 0)
+    questTitle.BackgroundTransparency = 1
+    questTitle.Text = "QUEST ACTIVE :"
+    questTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    questTitle.TextSize = 14
+    questTitle.Font = Enum.Font.GothamBold
+    questTitle.TextXAlignment = Enum.TextXAlignment.Left
+    questTitle.TextStrokeTransparency = 0
+    questTitle.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    questTitle.Parent = questFrame
+    
+    questLabel = Instance.new("TextLabel")
+    questLabel.Name = "Quest"
+    questLabel.Size = UDim2.new(1, -105, 1, 0)
+    questLabel.Position = UDim2.new(0, 105, 0, 0)
+    questLabel.BackgroundTransparency = 1
+    questLabel.Text = "NONE"
+    questLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    questLabel.TextSize = 14
+    questLabel.Font = Enum.Font.GothamBold
+    questLabel.TextXAlignment = Enum.TextXAlignment.Left
+    questLabel.TextStrokeTransparency = 0
+    questLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    questLabel.Parent = questFrame
+end
+
+function UI:UpdateStatus(status)
+    if statusLabel then
+        statusLabel.Text = status or "IDLE"
+    end
+end
+
+function UI:UpdateQuest(questNum, questName)
+    if questLabel then
+        if questNum then
+            questLabel.Text = string.format("Quest %d - %s", questNum, questName or "")
+        else
+            questLabel.Text = "NONE"
+        end
+    end
+end
+
+-- Buat UI
+createUI()
+
+----------------------------------------------------------------
 -- 📦 LOAD SHARED UTILITIES
 ----------------------------------------------------------------
 print("=" .. string.rep("=", 59))
 print("🔥 THE FORGE - MODULAR QUEST LOADER")
 print("=" .. string.rep("=", 59))
 
-print("\n⏳ Initial wait: " .. CONFIG.INITIAL_WAIT .. " seconds...")
-task.wait(CONFIG.INITIAL_WAIT)
-
 print("\n📦 Loading Shared Utilities...")
+UI:UpdateStatus("LOADING SHARED...")
 local sharedUrl = CONFIG.GITHUB_BASE_URL .. "Shared.lua"
 local sharedSuccess, sharedError = pcall(function()
     loadstring(game:HttpGet(sharedUrl))()
@@ -60,10 +229,12 @@ end)
 if not sharedSuccess then
     warn("❌ Failed to load Shared.lua: " .. tostring(sharedError))
     warn("💡 Make sure the URL is correct: " .. sharedUrl)
+    UI:UpdateStatus("ERROR: SHARED FAILED")
     return
 end
 
 print("✅ Shared utilities loaded!")
+UI:UpdateStatus("INITIALIZING...")
 
 -- ตรวจสอบว่า Shared โหลดสำเร็จ
 if not _G.Shared then
@@ -76,10 +247,7 @@ local Shared = _G.Shared
 ----------------------------------------------------------------
 -- 🔍 QUEST DETECTION SYSTEM
 ----------------------------------------------------------------
-local Players = game:GetService("Players")
-local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
-local Workspace = game:GetService("Workspace")
 
 -- 🌍 ISLAND DETECTION
 local FORGES_FOLDER = Workspace:WaitForChild("Forges", 10)
@@ -296,6 +464,7 @@ local function loadQuest(questNum)
     if showLogs then
         print(string.format("\n📥 Loading %s from GitHub...", questFile))
         print("   URL: " .. questUrl)
+        UI:UpdateStatus("LOADING QUEST " .. questNum .. "...")
     end
     
     local success, result = pcall(function()
@@ -316,6 +485,9 @@ local function loadQuest(questNum)
         return true
     else
         warn(string.format("❌ Failed to load %s: %s", questFile, tostring(result)))
+        if showLogs then
+            UI:UpdateStatus("ERROR: QUEST " .. questNum .. " FAILED")
+        end
         return false
     end
 end
@@ -334,12 +506,15 @@ local function startQuest15Background()
     
     task.spawn(function()
         -- Silent startup (no spam in console)
+        UI:UpdateStatus("AUTO CLAIM (QUEST 15)")
+        UI:UpdateQuest(15, "Auto Claim Index")
+        
         while quest15Running do
             pcall(function()
                 loadQuest(15)
             end)
             
-            task.wait(2)  -- Run every 10 seconds
+            task.wait(2)  -- Run every 2 seconds
         end
     end)
 end
@@ -355,6 +530,8 @@ local function runQuestLoop()
     print("\n" .. string.rep("=", 60))
     print("🎮 STARTING AUTO QUEST RUNNER")
     print(string.rep("=", 60))
+    
+    UI:UpdateStatus("STARTING QUEST RUNNER...")
     
     -- ✅ RECOVERY CHECK: Quest List is empty?
     if isQuestListEmpty() then
@@ -388,6 +565,9 @@ local function runQuestLoop()
         print("🌋 ISLAND 2 DETECTED - QUEST 19 MODE")
         print("   ⛏️ Starting Mining + Auto Sell & Buy...")
         print(string.rep("=", 60))
+        
+        UI:UpdateStatus("FARMING (QUEST 19)")
+        UI:UpdateQuest(19, "Mining Loop")
         
         -- Run Quest 19 ONCE - it has its own internal infinite loop
         loadQuest(19)
@@ -426,6 +606,8 @@ local function runQuestLoop()
             -- Quest 13: Run once per session
             if not quest13Run then
                 print("\n🎵 Loading Quest 13 (Bard Quest) [Run Once Per Session]...")
+                UI:UpdateStatus("TWEENING (QUEST 13)")
+                UI:UpdateQuest(13, "Bard Quest")
                 loadQuest(13)
                 quest13Run = true
             else
@@ -438,6 +620,8 @@ local function runQuestLoop()
         elseif currentQuest == 14 then
             -- Quest 14: Lost Guitar (internal check, uses BardQuest not Introduction{N})
             print("\n🎸 Loading Quest 14 (Lost Guitar)...")
+            UI:UpdateStatus("TWEENING (QUEST 14)")
+            UI:UpdateQuest(14, "Lost Guitar")
             loadQuest(14)
             currentQuest = currentQuest + 1
             task.wait(2)
@@ -446,6 +630,8 @@ local function runQuestLoop()
         elseif currentQuest == 15 then
             -- Quest 15: Skip UI check, already running in background
             -- (Silent skip - no console spam)
+            UI:UpdateStatus("AUTO CLAIM (QUEST 15)")
+            UI:UpdateQuest(15, "Auto Claim Index")
             currentQuest = currentQuest + 1
             task.wait(1)
             continue
@@ -453,6 +639,8 @@ local function runQuestLoop()
         elseif currentQuest == 16 then
             -- Quest 16: Auto Buy Pickaxe (Gold >= 3340 AND Level < 10, no UI check)
             print("\n🛒 Loading Quest 16 (Auto Buy Pickaxe)...")
+            UI:UpdateStatus("AUTO BUY (QUEST 16)")
+            UI:UpdateQuest(16, "Auto Buy Pickaxe")
             loadQuest(16)
             currentQuest = currentQuest + 1
             task.wait(2)
@@ -461,6 +649,8 @@ local function runQuestLoop()
         elseif currentQuest == 17 then
             -- Quest 17: Auto mining until level 10 (internal check)
             print("\n⛏️ Loading Quest 17 (Auto Mining Until Level 10)...")
+            UI:UpdateStatus("FARMING (QUEST 17)")
+            UI:UpdateQuest(17, "Auto Mining")
             loadQuest(17)
             currentQuest = currentQuest + 1
             task.wait(2)
@@ -469,6 +659,8 @@ local function runQuestLoop()
         elseif currentQuest == 18 then
             -- Quest 18: Smart mining (internal check)
             print("\n🌋 Loading Quest 18 (Smart Mining)...")
+            UI:UpdateStatus("FARMING (QUEST 18)")
+            UI:UpdateQuest(18, "Smart Mining")
             loadQuest(18)
             break  -- Quest 18 is infinite loop
         end
@@ -484,6 +676,9 @@ local function runQuestLoop()
         if activeNum then
             print(string.format("   📋 Active Quest: #%d - %s", activeNum, activeName or "Unknown"))
             
+            -- Update UI
+            UI:UpdateQuest(activeNum, activeName)
+            
             -- ถ้าถึง Quest 18 ให้ mark ว่าไม่ต้องเช็ค Quest เก่าอีก
             if activeNum >= 18 then
                 reachedQuest18 = true
@@ -494,6 +689,15 @@ local function runQuestLoop()
             while attempts < maxAttempts do
                 attempts = attempts + 1
                 print(string.format("\n🚀 Running Quest %d (Attempt %d/%d)...", activeNum, attempts, maxAttempts))
+                
+                -- Update status berdasarkan quest type
+                if activeNum <= 6 then
+                    UI:UpdateStatus("TWEENING (QUEST " .. activeNum .. ")")
+                elseif activeNum <= 12 then
+                    UI:UpdateStatus("FARMING (QUEST " .. activeNum .. ")")
+                else
+                    UI:UpdateStatus("RUNNING (QUEST " .. activeNum .. ")")
+                end
                 
                 local success = loadQuest(activeNum)
                 
@@ -510,12 +714,15 @@ local function runQuestLoop()
                     
                     if isQuestComplete(activeNum) then
                         print(string.format("✅ Quest %d Complete!", activeNum))
+                        UI:UpdateStatus("QUEST " .. activeNum .. " COMPLETE")
                         break
                     else
                         warn(string.format("⏰ Quest %d timed out!", activeNum))
+                        UI:UpdateStatus("QUEST " .. activeNum .. " TIMEOUT")
                     end
                 else
                     warn(string.format("❌ Failed to load Quest %d", activeNum))
+                    UI:UpdateStatus("ERROR: QUEST " .. activeNum .. " FAILED")
                     task.wait(5)
                 end
             end
@@ -560,6 +767,9 @@ local function runQuestLoop()
         print("   ⚠️ Will NOT check Quest 1-17 anymore")
         print(string.rep("=", 60))
         
+        UI:UpdateStatus("FARMING (QUEST 18 LOOP)")
+        UI:UpdateQuest(18, "Smart Mining Loop")
+        
         local loopCount = 0
         
         while true do
@@ -586,6 +796,8 @@ local function runQuestLoop()
         print("\n" .. string.rep("=", 60))
         print("🎉 ALL QUESTS COMPLETED!")
         print(string.rep("=", 60))
+        UI:UpdateStatus("ALL QUESTS COMPLETED")
+        UI:UpdateQuest(nil)
     end
 end
 
@@ -594,12 +806,14 @@ end
 ----------------------------------------------------------------
 -- Wait for UI to load
 print("\n⏳ Waiting for Quest UI to load...")
+UI:UpdateStatus("WAITING FOR QUEST UI...")
 local uiReady = false
 for i = 1, 5 do
     local activeNum = getActiveQuestNumber()
     if activeNum then
         uiReady = true
         print(string.format("✅ Quest UI ready! Active Quest: #%d", activeNum))
+        UI:UpdateQuest(activeNum)
         break
     end
     task.wait(1)
@@ -607,6 +821,7 @@ end
 
 if not uiReady then
     warn("⚠️ Quest UI not detected, starting anyway...")
+    UI:UpdateStatus("QUEST UI NOT DETECTED")
 end
 
 -- Start quest loop
