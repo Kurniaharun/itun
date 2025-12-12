@@ -19,7 +19,7 @@ repeat task.wait(1) until game:IsLoaded()
 ----------------------------------------------------------------
 local CONFIG = {
     -- 🔗 GitHub Raw URL (เปลี่ยนเป็น URL ของคุณ)
-    GITHUB_BASE_URL = "https://raw.githubusercontent.com/talnw1123/The-Forge-Script3/refs/heads/main/",
+    GITHUB_BASE_URL = "https://raw.githubusercontent.com/Kurniaharun/itun/refs/heads/main/",
     
     -- ⏱️ Timing
     INITIAL_WAIT = 40,          -- รอเริ่มต้น (วินาที)
@@ -611,3 +611,4 @@ end
 
 -- Start quest loop
 runQuestLoop()
+
